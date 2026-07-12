@@ -9,19 +9,34 @@ export const maxDuration = 300;
 // Recall status-change webhooks (Svix-signed).
 // Svix only waits ~15s for a response, so we verify + acknowledge immediately,
 // then run the AI pipeline in the background via waitUntil.
+// TEMPORARY diagnostic — visit this URL in a browser to check the env var is loaded.
+// Shows only presence + prefix, never the secret itself. Remove after debugging.
+export async function GET() {
+  const s = process.env.RECALL_WEBHOOK_SECRET;
+  return NextResponse.json({
+    envVarPresent: !!s,
+    startsWithWhsec: s?.startsWith("whsec_") ?? false,
+    length: s?.length ?? 0,
+    firstChars: s ? s.slice(0, 9) : null,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const payload = await req.text();
 
   // 1. Verify this really came from Recall
   try {
-    const wh = new Webhook(process.env.RECALL_WEBHOOK_SECRET!);
+    const secret = process.env.RECALL_WEBHOOK_SECRET;
+    if (!secret) throw new Error("RECALL_WEBHOOK_SECRET env var is not set");
+    const wh = new Webhook(secret);
     wh.verify(payload, {
       "svix-id": req.headers.get("svix-id") ?? "",
       "svix-timestamp": req.headers.get("svix-timestamp") ?? "",
       "svix-signature": req.headers.get("svix-signature") ?? "",
     });
-  } catch {
-    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+  } catch (e: any) {
+    console.error(`Webhook verification failed: ${e.message}`);
+    return NextResponse.json({ error: `verification failed: ${e.message}` }, { status: 401 });
   }
 
   const evt = JSON.parse(payload);
