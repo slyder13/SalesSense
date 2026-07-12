@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
   // 3. Run the full pipeline (idempotent — duplicate deliveries are safe)
   try {
     const result = await processBotDone(botId);
+    if (!result.ok) {
+      // Transcript not ready yet — return 500 so Svix retries in a few minutes
+      console.warn(`Bot ${botId}: ${result.reason}, requesting retry`);
+      return NextResponse.json(result, { status: 500 });
+    }
     return NextResponse.json(result);
   } catch (e: any) {
     console.error(`Pipeline failed for bot ${botId}: ${e.message}`);
