@@ -118,7 +118,14 @@ export default function TestBot() {
             const data = await res.json();
             if (data.error) return add(`ERROR: ${data.error}`);
             setResult({ interactionId: data.interactionId, segmentCount: data.segmentCount, preview: [] });
-            add(`Loaded stored meeting "${data.title}" (${data.segmentCount} segments) — ready for extraction`);
+            const stored = new Date(data.storedAt).toLocaleString();
+            if (data.summary) {
+              add(`Loaded "${data.title}" (stored ${stored}, ${data.segmentCount} segments) — pipeline already ran automatically ✓`);
+              setAi({ summary: data.summary, actionItems: data.actionItems, attendees: [], scoping: [] });
+              if (data.emailDraft) setDrafts({ email: data.emailDraft, crmNote: data.crmNote });
+            } else {
+              add(`Loaded "${data.title}" (stored ${stored}, ${data.segmentCount} segments) — no insights yet; run extraction manually or check the webhook`);
+            }
           } catch (e: any) {
             add(`ERROR: ${e.message}`);
           }
