@@ -7,6 +7,7 @@ export default function TestBot() {
   const [log, setLog] = useState<string[]>([]);
   const [result, setResult] = useState<any>(null);
   const [ai, setAi] = useState<any>(null);
+  const [drafts, setDrafts] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
   const add = (m: string) => setLog((l) => [...l, `${new Date().toLocaleTimeString()} — ${m}`]);
@@ -66,6 +67,32 @@ export default function TestBot() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function generateDrafts() {
+    if (!result?.interactionId) return;
+    setBusy(true);
+    add("Generating follow-up email + CRM note (10-30 seconds)...");
+    try {
+      const res = await fetch("/api/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interactionId: result.interactionId, repName: "Chris" }),
+      });
+      const data = await res.json();
+      if (data.error) return add(`ERROR: ${data.error}`);
+      add("Drafts ready ✓");
+      setDrafts(data);
+    } catch (e: any) {
+      add(`ERROR: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copy(text: string, label: string) {
+    navigator.clipboard.writeText(text);
+    add(`${label} copied to clipboard`);
   }
 
   return (
@@ -143,6 +170,33 @@ export default function TestBot() {
               {(a.rapport_notes ?? []).map((p: any, j: number) => <p key={j} style={{ margin: 2 }}>　rapport: {p.text}</p>)}
             </div>
           ))}
+          <button onClick={generateDrafts} disabled={busy} style={{ padding: "10px 20px", marginTop: 10 }}>
+            Generate follow-up email + CRM note
+          </button>
+        </div>
+      )}
+      {drafts && (
+        <div style={{ marginTop: "1.5rem" }}>
+          <h2>Drafts</h2>
+          <h3>
+            Follow-up email{" "}
+            <button onClick={() => copy(`Subject: ${drafts.email.subject}\n\n${drafts.email.body}`, "Email")} style={{ fontSize: 12, padding: "4px 10px" }}>
+              Copy
+            </button>
+          </h3>
+          <div style={{ background: "#f4f8ff", padding: 14, whiteSpace: "pre-wrap", fontSize: 14 }}>
+            <strong>Subject: {drafts.email.subject}</strong>
+            {"\n\n" + drafts.email.body}
+          </div>
+          <h3>
+            CRM note{" "}
+            <button onClick={() => copy(drafts.crmNote, "CRM note")} style={{ fontSize: 12, padding: "4px 10px" }}>
+              Copy
+            </button>
+          </h3>
+          <div style={{ background: "#f6fff4", padding: 14, whiteSpace: "pre-wrap", fontSize: 14 }}>
+            {drafts.crmNote}
+          </div>
         </div>
       )}
     </main>

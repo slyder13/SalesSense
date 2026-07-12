@@ -4,11 +4,29 @@ import {
   buildExtractionUserMessage,
   PROMPT_VERSION,
 } from "@/lib/prompts/meeting-extraction";
+import {
+  DRAFTS_SYSTEM,
+  buildDraftsUserMessage,
+  DRAFTS_PROMPT_VERSION,
+} from "@/lib/prompts/drafts";
 
 export const MODEL = "claude-sonnet-5";
-export { PROMPT_VERSION };
+export { PROMPT_VERSION, DRAFTS_PROMPT_VERSION };
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+function parseJsonResponse(msg: Anthropic.Message) {
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error(`AI returned unparseable JSON. First 200 chars: ${cleaned.slice(0, 200)}`);
+  }
+}
 
 export async function extractMeetingIntelligence(
   segments: { idx: number; speaker: string; text: string }[]
@@ -20,16 +38,19 @@ export async function extractMeetingIntelligence(
     messages: [{ role: "user", content: buildExtractionUserMessage(segments) }],
   });
 
-  const text = msg.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
+  return parseJsonResponse(msg);
+}
 
-  // Model may wrap JSON in ```json fences — strip them
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    throw new Error(`AI returned unparseable JSON. First 200 chars: ${cleaned.slice(0, 200)}`);
-  }
+export async function generateDrafts(input: {
+  repName: string;
+  extracted: any;
+  priorMeetings?: any[];
+}) {
+  const msg = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 4000,
+    system: DRAFTS_SYSTEM,
+    messages: [{ role: "user", content: buildDraftsUserMessage(input) }],
+  });
+  return parseJsonResponse(msg);
 }
