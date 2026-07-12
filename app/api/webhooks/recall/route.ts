@@ -29,10 +29,13 @@ export async function POST(req: NextRequest) {
     const secret = process.env.RECALL_WEBHOOK_SECRET;
     if (!secret) throw new Error("RECALL_WEBHOOK_SECRET env var is not set");
     const wh = new Webhook(secret);
+    // Recall sends white-labeled Svix headers (webhook-*); accept both namings
+    const h = (name: string) =>
+      req.headers.get(`svix-${name}`) ?? req.headers.get(`webhook-${name}`) ?? "";
     wh.verify(payload, {
-      "svix-id": req.headers.get("svix-id") ?? "",
-      "svix-timestamp": req.headers.get("svix-timestamp") ?? "",
-      "svix-signature": req.headers.get("svix-signature") ?? "",
+      "svix-id": h("id"),
+      "svix-timestamp": h("timestamp"),
+      "svix-signature": h("signature"),
     });
   } catch (e: any) {
     console.error(`Webhook verification failed: ${e.message}`);
