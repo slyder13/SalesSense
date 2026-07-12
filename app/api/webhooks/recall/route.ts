@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "svix";
+import { waitUntil } from "@vercel/functions";
 import { processBotDone } from "@/lib/pipeline";
 
-// Allow up to 5 minutes: ingest + extraction + drafts run inside this request
+// Background work (extraction + drafts) can take a while
 export const maxDuration = 300;
 
 // Recall status-change webhooks (Svix-signed).
-// Configure in Recall dashboard → Webhooks → Add Endpoint:
-//   https://YOUR-APP.vercel.app/api/webhooks/recall
-// Then copy the endpoint's Signing Secret into env var RECALL_WEBHOOK_SECRET.
+// Svix only waits ~15s for a response, so we verify + acknowledge immediately,
+// then run the AI pipeline in the background via waitUntil.
 export async function POST(req: NextRequest) {
   const payload = await req.text();
 
@@ -26,26 +26,22 @@ export async function POST(req: NextRequest) {
 
   const evt = JSON.parse(payload);
   const eventType: string = evt.event ?? "";
-  const botId: string | undefined = evt.data?.bot?.id ?? evt.data?.bot_id;
+  const botId: string | undefined =
+    evt.data?.bot?.id ?? evt.data?.bot_id ?? evt.data?.data?.bot?.id;
 
-  // 2. We only act when the recording/transcript is complete
-  const triggers = ["bot.done", "transcript.done", "analysis_done"];
-  if (!botId || !triggers.some((t) => eventType.includes(t))) {
+  // 2. transcript.done is the reliable "everything is ready" signal.
+  //    bot.done often fires before the transcript artifact exists, so we skip it
+  //    (the transcript.done that follows will trigger the pipeline).
+  if (!botId || !eventType.includes("transcript.done")) {
     return NextResponse.json({ ok: true, skipped: eventType });
   }
 
-  // 3. Run the full pipeline (idempotent — duplicate deliveries are safe)
-  try {
-    const result = await processBotDone(botId);
-    if (!result.ok) {
-      // Transcript not ready yet — return 500 so Svix retries in a few minutes
-      console.warn(`Bot ${botId}: ${result.reason}, requesting retry`);
-      return NextResponse.json(result, { status: 500 });
-    }
-    return NextResponse.json(result);
-  } catch (e: any) {
-    console.error(`Pipeline failed for bot ${botId}: ${e.message}`);
-    // 500 tells Svix to retry later — gives transient failures a second chance
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  // 3. Acknowledge now, process in the background (idempotent — retries are safe)
+  waitUntil(
+    processBotDone(botId)
+      .then((r) => console.log(`Pipeline for bot ${botId}:`, JSON.stringify(r)))
+      .catch((e) => console.error(`Pipeline failed for bot ${botId}: ${e.message}`))
+  );
+
+  return NextResponse.json({ ok: true, processing: botId });
 }
