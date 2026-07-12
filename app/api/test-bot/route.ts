@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendBotToMeeting, getBot, getTranscript, botStatus } from "@/lib/adapters/recording";
+import { sendBotToMeeting, getBot, botStatus } from "@/lib/adapters/recording";
 import { supabaseAdmin } from "@/lib/supabase";
+import { ingestBotRecording } from "@/lib/pipeline";
+
+export const maxDuration = 300;
 
 // POST { meetingUrl } → sends the bot, returns { botId }
 export async function POST(req: NextRequest) {
@@ -16,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET ?botId=x → checks status; when transcript is ready, stores it in Supabase
+// GET ?botId=x → checks status; when transcript is ready, ingests via shared pipeline
 export async function GET(req: NextRequest) {
   try {
     const botId = req.nextUrl.searchParams.get("botId");
@@ -24,66 +27,21 @@ export async function GET(req: NextRequest) {
 
     const bot = await getBot(botId);
     const status = botStatus(bot);
-    const segments = await getTranscript(botId);
 
-    if (!segments || segments.length === 0) {
-      return NextResponse.json({ status, transcriptReady: false });
-    }
+    const ingested = await ingestBotRecording(botId);
+    if (!ingested) return NextResponse.json({ status, transcriptReady: false });
 
-    // Store in Supabase (idempotent: skip if this bot was already ingested)
     const db = supabaseAdmin();
-    const { data: existing } = await db
-      .from("interactions").select("id").eq("source_ref", botId).maybeSingle();
-
-    let interactionId = existing?.id;
-    if (!interactionId) {
-      const { data: interaction, error: iErr } = await db
-        .from("interactions")
-        .insert({
-          type: "meeting",
-          source: "recall",
-          source_ref: botId,
-          title: "Test meeting",
-          occurred_at: new Date().toISOString(),
-          duration_s: Math.round((segments[segments.length - 1].endMs ?? 0) / 1000),
-          status: "ready",
-        })
-        .select("id").single();
-      if (iErr) throw new Error(`DB insert failed: ${iErr.message}`);
-      interactionId = interaction.id;
-
-      const { error: sErr } = await db.from("transcript_segments").insert(
-        segments.map((s) => ({
-          interaction_id: interactionId,
-          speaker_label: s.speakerLabel,
-          start_ms: s.startMs,
-          end_ms: s.endMs,
-          text: s.text,
-        }))
-      );
-      if (sErr) throw new Error(`Segment insert failed: ${sErr.message}`);
-
-      // Talk-time % per speaker — computed, not AI
-      const talk: Record<string, number> = {};
-      for (const s of segments) talk[s.speakerLabel] = (talk[s.speakerLabel] ?? 0) + (s.endMs - s.startMs);
-      const total = Object.values(talk).reduce((a, b) => a + b, 0) || 1;
-      await db.from("participants").insert(
-        Object.entries(talk).map(([name, ms]) => ({
-          interaction_id: interactionId,
-          name,
-          speaker_label: name,
-          talk_ms: ms,
-          talk_pct: Math.round((ms / total) * 10000) / 100,
-        }))
-      );
-    }
+    const { data: preview } = await db
+      .from("transcript_segments").select("speaker_label, text")
+      .eq("interaction_id", ingested.interactionId).order("start_ms").limit(5);
 
     return NextResponse.json({
       status,
       transcriptReady: true,
-      interactionId,
-      segmentCount: segments.length,
-      preview: segments.slice(0, 5),
+      interactionId: ingested.interactionId,
+      segmentCount: ingested.segmentCount,
+      preview: (preview ?? []).map((s) => ({ speakerLabel: s.speaker_label, text: s.text })),
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
