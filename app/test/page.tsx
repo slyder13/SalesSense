@@ -14,43 +14,58 @@ export default function TestBot() {
   async function sendBot() {
     setBusy(true);
     add("Sending bot to meeting...");
-    const res = await fetch("/api/test-bot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ meetingUrl: url }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (data.error) return add(`ERROR: ${data.error}`);
-    setBotId(data.botId);
-    add(`Bot created (${data.botId}). It should appear in the meeting lobby within ~30s — admit it!`);
+    try {
+      const res = await fetch("/api/test-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingUrl: url }),
+      });
+      const data = await res.json();
+      if (data.error) return add(`ERROR: ${data.error}`);
+      setBotId(data.botId);
+      add(`Bot created (${data.botId}). It should appear in the meeting lobby within ~30s — admit it!`);
+    } catch (e: any) {
+      add(`ERROR: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function checkStatus() {
     if (!botId) return;
     setBusy(true);
-    const res = await fetch(`/api/test-bot?botId=${botId}`);
-    const data = await res.json();
-    setBusy(false);
-    if (data.error) return add(`ERROR: ${data.error}`);
-    add(`Bot status: ${data.status}${data.transcriptReady ? " — transcript stored in database ✓" : " — transcript not ready yet"}`);
-    if (data.transcriptReady) setResult(data);
+    try {
+      const res = await fetch(`/api/test-bot?botId=${botId}`);
+      const data = await res.json();
+      if (data.error) return add(`ERROR: ${data.error}`);
+      add(`Bot status: ${data.status}${data.transcriptReady ? " — transcript stored in database ✓" : " — transcript not ready yet"}`);
+      if (data.transcriptReady) setResult(data);
+    } catch (e: any) {
+      add(`ERROR: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function runExtraction() {
     if (!result?.interactionId) return;
     setBusy(true);
     add("Running AI extraction (10-30 seconds)...");
-    const res = await fetch("/api/enrich", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ interactionId: result.interactionId }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (data.error) return add(`ERROR: ${data.error}`);
-    add("Extraction complete — insights stored ✓");
-    setAi(data);
+    try {
+      const res = await fetch("/api/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interactionId: result.interactionId }),
+      });
+      const data = await res.json();
+      if (data.error) return add(`ERROR: ${data.error}`);
+      add("Extraction complete — insights stored ✓");
+      setAi(data);
+    } catch (e: any) {
+      add(`ERROR: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -71,11 +86,15 @@ export default function TestBot() {
       </button>
       <button
         onClick={async () => {
-          const res = await fetch("/api/enrich");
-          const data = await res.json();
-          if (data.error) return add(`ERROR: ${data.error}`);
-          setResult({ interactionId: data.interactionId, segmentCount: data.segmentCount, preview: [] });
-          add(`Loaded stored meeting "${data.title}" (${data.segmentCount} segments) — ready for extraction`);
+          try {
+            const res = await fetch("/api/enrich");
+            const data = await res.json();
+            if (data.error) return add(`ERROR: ${data.error}`);
+            setResult({ interactionId: data.interactionId, segmentCount: data.segmentCount, preview: [] });
+            add(`Loaded stored meeting "${data.title}" (${data.segmentCount} segments) — ready for extraction`);
+          } catch (e: any) {
+            add(`ERROR: ${e.message}`);
+          }
         }}
         disabled={busy}
         style={{ padding: "10px 20px" }}
