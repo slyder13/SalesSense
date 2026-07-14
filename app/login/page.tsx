@@ -27,8 +27,13 @@ function LoginForm() {
       options: { emailRedirectTo: `${location.origin}/auth/confirm` },
     });
     setBusy(false);
-    if (error) setError(error.message);
-    else setSent(true);
+    if (error) {
+      setError(
+        error.message && error.message.trim()
+          ? `${error.message} (status ${error.status ?? "?"})`
+          : `Sign-in failed: ${JSON.stringify({ status: error.status, code: (error as any).code, name: error.name })}`
+      );
+    } else setSent(true);
   }
 
   return (
