@@ -27,6 +27,9 @@ export default function Sidenav() {
       <div className="nav-disabled">Deals <small>SOON</small></div>
       <div className="nav-disabled">Search <small>SOON</small></div>
       <div className="nav-disabled">Analytics <small>SOON</small></div>
+      <Link href="/settings" className={path.startsWith("/settings") ? "active" : ""}>
+        Settings
+      </Link>
       <div style={{ flex: 1 }} />
       <Link href="/test">Bot test page</Link>
       <a onClick={signOut} style={{ cursor: "pointer" }}>Sign out</a>

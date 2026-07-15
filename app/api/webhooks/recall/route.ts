@@ -32,6 +32,21 @@ export async function POST(req: NextRequest) {
 
   const evt = JSON.parse(payload);
   const eventType: string = evt.event ?? "";
+
+  // Calendar changed → re-run auto-join rules for that calendar
+  if (eventType.startsWith("calendar.")) {
+    const calendarId = evt.data?.calendar_id ?? evt.data?.calendar?.id;
+    if (calendarId) {
+      const { syncCalendar } = await import("@/lib/autojoin");
+      waitUntil(
+        syncCalendar(calendarId)
+          .then((r) => console.log(`Calendar sync ${calendarId}:`, JSON.stringify(r)))
+          .catch((e) => console.error(`Calendar sync failed ${calendarId}: ${e.message}`))
+      );
+    }
+    return NextResponse.json({ ok: true, calendar: true });
+  }
+
   const botId: string | undefined =
     evt.data?.bot?.id ?? evt.data?.bot_id ?? evt.data?.data?.bot?.id;
 
