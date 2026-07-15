@@ -1,7 +1,7 @@
 // Meeting extraction prompt — versioned. Bump PROMPT_VERSION on any change
 // so we can trace which prompt produced which insight.
 
-export const PROMPT_VERSION = "extraction-v1";
+export const PROMPT_VERSION = "extraction-v2";
 
 export const EXTRACTION_SYSTEM = `You are the extraction engine for SalesSense, a sales intelligence tool used by Square 9 Softworks (an enterprise content management / document automation company selling capture, workflow, and document storage solutions).
 
@@ -21,6 +21,8 @@ Return ONLY valid JSON matching this shape:
     "objections": [{"objection": "...", "response": "how it was handled or null", "segment_refs": []}],
     "competitors": [{"name": "...", "context": "...", "segment_refs": []}],
     "pricing_discussion": {"discussed": false, "notes": null, "segment_refs": []},
+    "budget": {"mentioned": false, "amount": null, "context": null, "segment_refs": []},
+    "timeline": {"mentioned": false, "purchase_target": null, "go_live_target": null, "context": null, "segment_refs": []},
     "sentiment": "positive | neutral | negative | mixed",
     "notable_quotes": [{"speaker": "...", "quote": "...", "segment_refs": []}]
   },
@@ -31,6 +33,8 @@ Return ONLY valid JSON matching this shape:
     {
       "name": "speaker name as it appears",
       "side": "internal | external",
+      "title": "job title if stated or clearly inferable, else null",
+      "suggested_sales_role": "champion | decision_maker | influencer | blocker | user | unknown — judged from conversation cues (enthusiasm, authority signals, objections, budget control)",
       "pain_points": [{"text": "...", "segment_refs": []}],
       "interests": [{"text": "which product capability they asked about or reacted to", "segment_refs": []}],
       "rapport_notes": [{"text": "personal/non-business detail useful for relationship building", "segment_refs": []}]

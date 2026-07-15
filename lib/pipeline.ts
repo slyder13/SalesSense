@@ -127,11 +127,16 @@ export async function enrichInteraction(interactionId: string) {
         pain_points: [...existingProfile.pain_points, ...tag(a.pain_points)],
         interests: [...existingProfile.interests, ...tag(a.interests)],
         rapport_notes: [...existingProfile.rapport_notes, ...tag(a.rapport_notes)],
+        // AI fills blanks but never overwrites what a rep typed
+        title: existingProfile.title ?? a.title ?? null,
+        sales_role: existingProfile.sales_role ?? a.suggested_sales_role ?? null,
         updated_at: new Date().toISOString(),
       }).eq("id", existingProfile.id);
     } else {
       await db.from("attendee_profiles").insert({
         deal_id: dealId, email, name: a.name,
+        title: a.title ?? null,
+        sales_role: a.suggested_sales_role ?? null,
         pain_points: tag(a.pain_points), interests: tag(a.interests), rapport_notes: tag(a.rapport_notes),
       });
     }

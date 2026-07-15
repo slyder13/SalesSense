@@ -24,7 +24,9 @@ export default function Sidenav() {
       <Link href="/meetings" className={path.startsWith("/meetings") ? "active" : ""}>
         Meetings
       </Link>
-      <div className="nav-disabled">Deals <small>SOON</small></div>
+      <Link href="/deals" className={path.startsWith("/deals") ? "active" : ""}>
+        Deals
+      </Link>
       <div className="nav-disabled">Search <small>SOON</small></div>
       <div className="nav-disabled">Analytics <small>SOON</small></div>
       <Link href="/settings" className={path.startsWith("/settings") ? "active" : ""}>
