@@ -59,6 +59,17 @@ async function getConnection() {
 
 async function accessToken() {
   const conn = await getConnection();
+
+  // Use the cached short-lived token if it's still fresh — avoids refreshing
+  // (and rotating) on every API call, which breaks under concurrent requests.
+  if (
+    conn.access_token &&
+    conn.access_token_expires_at &&
+    new Date(conn.access_token_expires_at) > new Date(Date.now() + 60_000)
+  ) {
+    return { token: conn.access_token as string, instanceUrl: conn.instance_url as string };
+  }
+
   const res = await fetch(`${LOGIN_URL}/services/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -72,15 +83,16 @@ async function accessToken() {
   const data = await res.json();
   if (!res.ok) throw new Error(`SF token refresh failed: ${JSON.stringify(data)}`);
 
-  // Refresh token rotation: Salesforce invalidates the token we just used and
-  // issues a replacement. Persist it immediately or the next call fails.
-  if (data.refresh_token && data.refresh_token !== conn.refresh_token) {
-    const db = supabaseAdmin();
-    await db
-      .from("salesforce_connections")
-      .update({ refresh_token: data.refresh_token })
-      .eq("id", conn.id);
-  }
+  // Persist the rotated refresh token AND cache the access token (~25 min TTL)
+  const db = supabaseAdmin();
+  await db
+    .from("salesforce_connections")
+    .update({
+      refresh_token: data.refresh_token ?? conn.refresh_token,
+      access_token: data.access_token,
+      access_token_expires_at: new Date(Date.now() + 25 * 60_000).toISOString(),
+    })
+    .eq("id", conn.id);
 
   return { token: data.access_token as string, instanceUrl: conn.instance_url as string };
 }

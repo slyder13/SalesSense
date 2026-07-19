@@ -8,16 +8,23 @@ export default function SfLink({ deal }: { deal: any }) {
   const [results, setResults] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timer, setTimer] = useState<any>(null);
   const router = useRouter();
 
-  async function search(term: string) {
+  // Debounced: waits until you stop typing for 400ms before querying
+  function search(term: string) {
     setQ(term);
     setError(null);
+    if (timer) clearTimeout(timer);
     if (term.length < 2) return setResults([]);
-    const res = await fetch(`/api/salesforce/search?q=${encodeURIComponent(term)}`);
-    const data = await res.json();
-    if (data.error) setError(data.error);
-    else setResults(data.results);
+    setTimer(
+      setTimeout(async () => {
+        const res = await fetch(`/api/salesforce/search?q=${encodeURIComponent(term)}`);
+        const data = await res.json();
+        if (data.error) setError(data.error);
+        else setResults(data.results);
+      }, 400)
+    );
   }
 
   async function link(opportunityId: string | null) {
