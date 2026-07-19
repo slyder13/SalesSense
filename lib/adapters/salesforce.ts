@@ -83,7 +83,9 @@ async function accessToken() {
   const data = await res.json();
   if (!res.ok) throw new Error(`SF token refresh failed: ${JSON.stringify(data)}`);
 
-  // Persist the rotated refresh token AND cache the access token (~25 min TTL)
+  // Use the instance_url the token was issued for (sessions can be domain-locked),
+  // persist the rotated refresh token, and cache the access token (~25 min TTL)
+  const instanceUrl = (data.instance_url as string) ?? conn.instance_url;
   const db = supabaseAdmin();
   await db
     .from("salesforce_connections")
@@ -91,20 +93,39 @@ async function accessToken() {
       refresh_token: data.refresh_token ?? conn.refresh_token,
       access_token: data.access_token,
       access_token_expires_at: new Date(Date.now() + 25 * 60_000).toISOString(),
+      instance_url: instanceUrl,
     })
     .eq("id", conn.id);
 
-  return { token: data.access_token as string, instanceUrl: conn.instance_url as string };
+  return { token: data.access_token as string, instanceUrl };
 }
 
-async function sfQuery(soql: string) {
+// Wipe the cached token so the next call mints a fresh one
+async function invalidateCachedToken() {
+  const db = supabaseAdmin();
+  await db
+    .from("salesforce_connections")
+    .update({ access_token: null, access_token_expires_at: null })
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+}
+
+async function sfQuery(soql: string, retried = false): Promise<any[]> {
   const { token, instanceUrl } = await accessToken();
   const res = await fetch(
     `${instanceUrl}/services/data/${API_VERSION}/query?q=${encodeURIComponent(soql)}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
-  if (!res.ok) throw new Error(`SF query failed: ${JSON.stringify(data)}`);
+  if (!res.ok) {
+    const invalidSession =
+      Array.isArray(data) && data.some((d: any) => d.errorCode === "INVALID_SESSION_ID");
+    if (invalidSession && !retried) {
+      // Stale/rejected session: drop the cache and try once more with a fresh token
+      await invalidateCachedToken();
+      return sfQuery(soql, true);
+    }
+    throw new Error(`SF query failed: ${JSON.stringify(data)}`);
+  }
   return data.records ?? [];
 }
 
