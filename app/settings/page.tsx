@@ -92,10 +92,15 @@ export default async function SettingsPage({
       <div className="card">
         <h3>Salesforce</h3>
         {sfConnected ? (
-          <p>
-            Connected to {sfConn!.instance_url} (by {sfConn!.connected_by}). Deals can be
-            linked to Opportunities from any deal page.
-          </p>
+          <div>
+            <p style={{ marginBottom: 12 }}>
+              Connected to {sfConn!.instance_url} (by {sfConn!.connected_by}). Deals can be
+              linked to Opportunities from any deal page.
+            </p>
+            <a href="/api/salesforce/connect">
+              <button className="btn subtle">Reconnect Salesforce</button>
+            </a>
+          </div>
         ) : (
           <div>
             <p style={{ marginBottom: 12 }}>
