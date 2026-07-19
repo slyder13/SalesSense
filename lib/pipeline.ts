@@ -4,7 +4,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getTranscript, getBot } from "@/lib/adapters/recording";
-import { extractMeetingIntelligence, generateDrafts, MODEL, PROMPT_VERSION, DRAFTS_PROMPT_VERSION } from "@/lib/ai";
+import { extractMeetingIntelligence, generateDrafts, generateDebrief, MODEL, PROMPT_VERSION, DRAFTS_PROMPT_VERSION, DEBRIEF_PROMPT_VERSION } from "@/lib/ai";
 
 // ---------- Step 1: ingest transcript from a finished bot ----------
 export async function ingestBotRecording(botId: string): Promise<{ interactionId: string; segmentCount: number } | null> {
@@ -183,11 +183,54 @@ export async function draftInteraction(interactionId: string, repName = "Chris")
   return drafts;
 }
 
+// ---------- Step 4: debrief scorecard (internal coaching) ----------
+export async function debriefInteraction(interactionId: string) {
+  const db = supabaseAdmin();
+
+  // Idempotent: skip if a debrief for this prompt version already exists
+  const { data: prior } = await db
+    .from("insights").select("id").eq("interaction_id", interactionId)
+    .eq("kind", "debrief").eq("prompt_version", DEBRIEF_PROMPT_VERSION).maybeSingle();
+  if (prior) return { alreadyDone: true };
+
+  const { data: segments, error } = await db
+    .from("transcript_segments").select("id, speaker_label, text")
+    .eq("interaction_id", interactionId).order("start_ms");
+  if (error) throw new Error(error.message);
+  if (!segments?.length) throw new Error("No transcript found");
+
+  const { data: interaction } = await db
+    .from("interactions").select("deal_id").eq("id", interactionId).single();
+
+  const numbered = segments.map((s, i) => ({ idx: i, speaker: s.speaker_label ?? "?", text: s.text }));
+  const debrief = await generateDebrief(numbered);
+  const toIds = (refs?: number[]) => (refs ?? []).map((r) => segments[r]?.id).filter(Boolean);
+
+  // Map segment_refs → real ids inside the payload so the UI can link evidence
+  for (const key of Object.keys(debrief)) {
+    if (debrief[key]?.segment_refs) debrief[key].segment_ids = toIds(debrief[key].segment_refs);
+  }
+
+  const { error: insErr } = await db.from("insights").insert({
+    interaction_id: interactionId,
+    deal_id: interaction?.deal_id ?? null,
+    kind: "debrief",
+    payload: debrief,
+    prompt_version: DEBRIEF_PROMPT_VERSION,
+    model: MODEL,
+  });
+  if (insErr) throw new Error(insErr.message);
+  return { debrief };
+}
+
 // ---------- Full automatic pipeline (webhook entry point) ----------
 export async function processBotDone(botId: string) {
   const ingested = await ingestBotRecording(botId);
   if (!ingested) return { ok: false, reason: "transcript not ready" };
   await enrichInteraction(ingested.interactionId);
   await draftInteraction(ingested.interactionId);
+  await debriefInteraction(ingested.interactionId).catch((e) =>
+    console.error(`Debrief failed for ${ingested.interactionId}: ${e.message}`)
+  );
   return { ok: true, interactionId: ingested.interactionId };
 }

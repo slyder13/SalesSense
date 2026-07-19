@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import Debrief from "@/components/Debrief";
 
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -7,7 +8,7 @@ function fmt(ms: number) {
 }
 
 export default function MeetingDetail({
-  meeting, segments, participants, summary, actionItems, emailDraft, crmNote,
+  meeting, segments, participants, summary, actionItems, emailDraft, crmNote, debrief,
 }: any) {
   const [highlighted, setHighlighted] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
@@ -115,6 +116,8 @@ export default function MeetingDetail({
               <div className="draft-box">{crmNote}</div>
             </div>
           )}
+
+          {debrief && <Debrief insight={debrief} onShowSource={showSource} />}
 
           {!sum && (
             <div className="card">

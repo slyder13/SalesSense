@@ -30,6 +30,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       actionItems={actionItems}
       emailDraft={latest("email_draft")?.payload ?? null}
       crmNote={(latest("crm_note")?.payload as any)?.text ?? null}
+      debrief={latest("debrief") ?? null}
     />
   );
 }

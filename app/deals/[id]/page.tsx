@@ -29,6 +29,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const summaries = insights?.filter((i) => i.kind === "summary") ?? [];
   const latestSummary = summaries[0]?.payload as any;
   const actionItems = insights?.filter((i) => i.kind === "action_item") ?? [];
+  const debriefs = insights?.filter((i) => i.kind === "debrief") ?? [];
 
   return (
     <DealDetail
@@ -39,6 +40,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
       summaries={summaries}
       latestSummary={latestSummary ?? null}
       actionItems={actionItems}
+      debriefs={debriefs}
       upcomingEvents={nextEvents ?? []}
     />
   );

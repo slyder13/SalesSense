@@ -29,7 +29,7 @@ function Field({ label, value, onSave }: { label: string; value: string | null; 
 }
 
 export default function DealDetail({
-  deal, stakeholders, interactions, scoping, summaries, latestSummary, actionItems, upcomingEvents,
+  deal, stakeholders, interactions, scoping, summaries, latestSummary, actionItems, debriefs = [], upcomingEvents,
 }: any) {
   const [si, setSi] = useState(0); // stakeholder index
   const [tab, setTab] = useState<"status" | "scoping" | "activity" | "tasks">("status");
@@ -173,6 +173,25 @@ export default function DealDetail({
                 <div className="draft-box" style={{ marginTop: 0 }}>
                   <div style={{ fontSize: 11, color: "var(--text-dim)" }}>SENTIMENT (LAST CALL)</div>
                   {latestSummary?.sentiment ?? "—"}
+                </div>
+                <div className="draft-box" style={{ marginTop: 0, gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)" }}>TEAM DEBRIEF (INTERNAL)</div>
+                  {debriefs.length === 0 ? "No debriefs yet" : (() => {
+                    const avgOf = (p: any) => {
+                      const r = ["q1","q2","q3","q4","q5","q6","q7","q8","q9","q10","q11","q12"]
+                        .map((q) => p?.[q]?.rating).filter((n: any) => n >= 1);
+                      return r.length ? r.reduce((a: number, b: number) => a + b, 0) / r.length : null;
+                    };
+                    const latest = debriefs[0].payload;
+                    const avgs = debriefs.map((d: any) => avgOf(d.payload)).filter(Boolean).reverse();
+                    const trend = avgs.length > 1 ? (avgs[avgs.length - 1]! > avgs[0]! ? " ↗" : avgs[avgs.length - 1]! < avgs[0]! ? " ↘" : " →") : "";
+                    return (
+                      <>
+                        Last verdict: <strong>{latest?.q12?.verdict ?? "—"}</strong>
+                        {" · "}avg score {avgOf(latest)?.toFixed(1) ?? "—"}/5 across {debriefs.length} debrief{debriefs.length === 1 ? "" : "s"}{trend}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="draft-box" style={{ marginTop: 0, gridColumn: "1 / -1" }}>
                   <div style={{ fontSize: 11, color: "var(--text-dim)" }}>WHERE THINGS STAND</div>

@@ -9,9 +9,14 @@ import {
   buildDraftsUserMessage,
   DRAFTS_PROMPT_VERSION,
 } from "@/lib/prompts/drafts";
+import {
+  DEBRIEF_SYSTEM,
+  buildDebriefUserMessage,
+  DEBRIEF_PROMPT_VERSION,
+} from "@/lib/prompts/debrief";
 
 export const MODEL = "claude-sonnet-5";
-export { PROMPT_VERSION, DRAFTS_PROMPT_VERSION };
+export { PROMPT_VERSION, DRAFTS_PROMPT_VERSION, DEBRIEF_PROMPT_VERSION };
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -51,6 +56,18 @@ export async function generateDrafts(input: {
     max_tokens: 4000,
     system: DRAFTS_SYSTEM,
     messages: [{ role: "user", content: buildDraftsUserMessage(input) }],
+  });
+  return parseJsonResponse(msg);
+}
+
+export async function generateDebrief(
+  segments: { idx: number; speaker: string; text: string }[]
+) {
+  const msg = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 4000,
+    system: DEBRIEF_SYSTEM,
+    messages: [{ role: "user", content: buildDebriefUserMessage(segments) }],
   });
   return parseJsonResponse(msg);
 }
