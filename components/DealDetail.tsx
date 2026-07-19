@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import SfLink from "@/components/SfLink";
 
 const ROLES = ["champion", "decision_maker", "influencer", "blocker", "user", "unknown"];
 
@@ -68,10 +69,12 @@ export default function DealDetail({
           <span className="page-title" style={{ display: "inline" }}>{deal.name}</span>
           <span style={{ color: "var(--text-dim)", marginLeft: 12, fontSize: 13 }}>
             {interactions.length} meeting{interactions.length === 1 ? "" : "s"}
-            {deal.salesforce_opportunity_id ? ` · SF: ${deal.salesforce_opportunity_id}` : ""}
           </span>
         </div>
-        <span className="badge ready">{deal.status}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <SfLink deal={deal} />
+          <span className="badge ready">{deal.status}</span>
+        </div>
       </div>
       <div className="page-sub" style={{ marginTop: 4 }}>{deal.company_domain}</div>
 

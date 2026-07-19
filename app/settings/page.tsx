@@ -7,7 +7,10 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ calendar_connected?: string; calendar_error?: string }>;
+  searchParams: Promise<{
+    calendar_connected?: string; calendar_error?: string;
+    sf_connected?: string; sf_error?: string;
+  }>;
 }) {
   const params = await searchParams;
   const supabase = await supabaseServer();
@@ -21,6 +24,12 @@ export default async function SettingsPage({
     .maybeSingle();
 
   const connected = !!user?.recall_calendar_id;
+
+  const { data: sfConn } = await db
+    .from("salesforce_connections")
+    .select("instance_url, connected_by")
+    .maybeSingle();
+  const sfConnected = !!sfConn;
 
   const { data: events } = connected
     ? await db
@@ -64,6 +73,37 @@ export default async function SettingsPage({
             </p>
             <a href="/api/calendar/connect">
               <button className="btn">Connect Google Calendar</button>
+            </a>
+          </div>
+        )}
+      </div>
+
+      {params.sf_connected && (
+        <div className="card" style={{ borderColor: "var(--green)" }}>
+          Salesforce connected ✓ — you can now link deals to opportunities.
+        </div>
+      )}
+      {params.sf_error && (
+        <div className="card" style={{ borderColor: "var(--red)" }}>
+          Salesforce connection failed: {params.sf_error}
+        </div>
+      )}
+
+      <div className="card">
+        <h3>Salesforce</h3>
+        {sfConnected ? (
+          <p>
+            Connected to {sfConn!.instance_url} (by {sfConn!.connected_by}). Deals can be
+            linked to Opportunities from any deal page.
+          </p>
+        ) : (
+          <div>
+            <p style={{ marginBottom: 12 }}>
+              Connect Salesforce once for the whole team — then any deal can be linked to
+              its Opportunity, pulling stage, amount, and close date.
+            </p>
+            <a href="/api/salesforce/connect">
+              <button className="btn">Connect Salesforce</button>
             </a>
           </div>
         )}
