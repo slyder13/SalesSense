@@ -71,6 +71,17 @@ async function accessToken() {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(`SF token refresh failed: ${JSON.stringify(data)}`);
+
+  // Refresh token rotation: Salesforce invalidates the token we just used and
+  // issues a replacement. Persist it immediately or the next call fails.
+  if (data.refresh_token && data.refresh_token !== conn.refresh_token) {
+    const db = supabaseAdmin();
+    await db
+      .from("salesforce_connections")
+      .update({ refresh_token: data.refresh_token })
+      .eq("id", conn.id);
+  }
+
   return { token: data.access_token as string, instanceUrl: conn.instance_url as string };
 }
 
