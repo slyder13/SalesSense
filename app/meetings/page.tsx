@@ -1,17 +1,26 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
+import { currentAppUser, canSeeAllMeetings } from "@/lib/authz";
 import AutoRefresh from "@/components/AutoRefresh";
 
 export const dynamic = "force-dynamic";
 
 export default async function MeetingsPage() {
+  const user = await currentAppUser();
   const db = supabaseAdmin();
-  const { data: meetings } = await db
+
+  let query = db
     .from("interactions")
-    .select("id, title, occurred_at, duration_s, status, failure_reason, deals(name), insights(kind)")
+    .select("id, title, occurred_at, duration_s, status, failure_reason, user_id, deals(name), insights(kind)")
     .eq("type", "meeting")
     .order("occurred_at", { ascending: false })
     .limit(50);
+
+  // Reps see their own meetings (plus unowned ones); managers/admins see all
+  if (!canSeeAllMeetings(user)) {
+    query = query.or(`user_id.eq.${user?.id ?? "00000000-0000-0000-0000-000000000000"},user_id.is.null`);
+  }
+  const { data: meetings } = await query;
 
   return (
     <div>

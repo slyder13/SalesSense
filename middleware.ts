@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const ALLOWED_DOMAIN = "square-9.com";
 
-// Paths that work without a login
-const PUBLIC_PATHS = ["/login", "/auth", "/api/webhooks"];
+// Paths that work without a login (webhooks + cron have their own auth checks)
+const PUBLIC_PATHS = ["/login", "/auth", "/api/webhooks", "/api/cron"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });

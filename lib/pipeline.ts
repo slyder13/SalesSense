@@ -22,10 +22,19 @@ export async function ingestBotRecording(botId: string): Promise<{ interactionId
   const bot = await getBot(botId).catch(() => null);
   const title = bot?.metadata?.title ?? "Meeting";
 
+  // Attribution: calendar-scheduled bots carry the rep's email in metadata
+  let userId: string | null = null;
+  const repEmail = bot?.metadata?.user_email;
+  if (repEmail) {
+    const { data: owner } = await db
+      .from("users").select("id").eq("email", repEmail).maybeSingle();
+    userId = owner?.id ?? null;
+  }
+
   const { data: interaction, error: iErr } = await db
     .from("interactions")
     .insert({
-      type: "meeting", source: "recall", source_ref: botId, title,
+      type: "meeting", source: "recall", source_ref: botId, title, user_id: userId,
       occurred_at: new Date().toISOString(),
       duration_s: Math.round((segments[segments.length - 1].endMs ?? 0) / 1000),
       status: "ready",

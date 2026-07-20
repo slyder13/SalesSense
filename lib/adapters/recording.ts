@@ -56,6 +56,12 @@ export async function getBot(botId: string) {
   return recall(`/api/v1/bot/${botId}/`);
 }
 
+// Permanently deletes the bot's recorded media (audio/video) from Recall.
+// Transcripts and insights already live in our database, so nothing user-facing is lost.
+export async function deleteBotMedia(botId: string) {
+  return recall(`/api/v1/bot/${botId}/delete_media/`, { method: "POST" });
+}
+
 // Summarize bot state for the UI
 export function botStatus(bot: any): string {
   const changes = bot?.status_changes ?? [];
