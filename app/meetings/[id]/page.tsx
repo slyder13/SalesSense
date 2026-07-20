@@ -33,9 +33,12 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       segments={segments ?? []}
       participants={participants ?? []}
       summary={latest("summary") ?? null}
+      summaryId={latest("summary")?.id ?? null}
       actionItems={actionItems}
       emailDraft={latest("email_draft")?.payload ?? null}
+      emailDraftId={latest("email_draft")?.id ?? null}
       crmNote={(latest("crm_note")?.payload as any)?.text ?? null}
+      crmNoteId={latest("crm_note")?.id ?? null}
       debrief={latest("debrief") ?? null}
     />
   );

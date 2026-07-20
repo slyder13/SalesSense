@@ -4,7 +4,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase";
 import { getTranscript, getBot } from "@/lib/adapters/recording";
-import { extractMeetingIntelligence, generateDrafts, generateDebrief, MODEL, PROMPT_VERSION, DRAFTS_PROMPT_VERSION, DEBRIEF_PROMPT_VERSION } from "@/lib/ai";
+import { extractMeetingIntelligence, generateDrafts, generateDebrief, embedTexts, MODEL, PROMPT_VERSION, DRAFTS_PROMPT_VERSION, DEBRIEF_PROMPT_VERSION } from "@/lib/ai";
 
 // ---------- Step 1: ingest transcript from a finished bot ----------
 export async function ingestBotRecording(botId: string): Promise<{ interactionId: string; segmentCount: number } | null> {
@@ -192,6 +192,42 @@ export async function draftInteraction(interactionId: string, repName = "Chris")
   return drafts;
 }
 
+// ---------- Embeddings for semantic search ----------
+export async function embedInteraction(interactionId: string) {
+  const db = supabaseAdmin();
+
+  // Idempotent: skip if already embedded
+  const { count } = await db
+    .from("embeddings").select("id", { count: "exact", head: true })
+    .eq("interaction_id", interactionId);
+  if (count && count > 0) return { alreadyEmbedded: true };
+
+  const { data: segments } = await db
+    .from("transcript_segments").select("speaker_label, text")
+    .eq("interaction_id", interactionId).order("start_ms");
+  if (!segments?.length) return { skipped: true };
+
+  const { data: interaction } = await db
+    .from("interactions").select("deal_id").eq("id", interactionId).single();
+
+  // Chunk ~8 segments together so each vector has enough context to be meaningful
+  const chunks: string[] = [];
+  for (let i = 0; i < segments.length; i += 8) {
+    chunks.push(segments.slice(i, i + 8).map((s) => `${s.speaker_label}: ${s.text}`).join("\n"));
+  }
+
+  const vectors = await embedTexts(chunks);
+  await db.from("embeddings").insert(
+    chunks.map((chunk_text, i) => ({
+      interaction_id: interactionId,
+      deal_id: interaction?.deal_id ?? null,
+      chunk_text,
+      embedding: vectors[i],
+    }))
+  );
+  return { chunks: chunks.length };
+}
+
 // ---------- Step 4: debrief scorecard (internal coaching) ----------
 export async function debriefInteraction(interactionId: string) {
   const db = supabaseAdmin();
@@ -240,6 +276,9 @@ export async function processBotDone(botId: string) {
   await draftInteraction(ingested.interactionId);
   await debriefInteraction(ingested.interactionId).catch((e) =>
     console.error(`Debrief failed for ${ingested.interactionId}: ${e.message}`)
+  );
+  await embedInteraction(ingested.interactionId).catch((e) =>
+    console.error(`Embedding failed for ${ingested.interactionId}: ${e.message}`)
   );
   return { ok: true, interactionId: ingested.interactionId };
 }

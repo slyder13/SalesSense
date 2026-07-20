@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import Debrief from "@/components/Debrief";
+import Feedback from "@/components/Feedback";
 
 function fmt(ms: number) {
   const s = Math.floor(ms / 1000);
@@ -8,7 +9,8 @@ function fmt(ms: number) {
 }
 
 export default function MeetingDetail({
-  meeting, segments, participants, summary, actionItems, emailDraft, crmNote, debrief,
+  meeting, segments, participants, summary, summaryId, actionItems,
+  emailDraft, emailDraftId, crmNote, crmNoteId, debrief,
 }: any) {
   const [highlighted, setHighlighted] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export default function MeetingDetail({
         <div>
           {sum && (
             <div className="card">
-              <h3>Summary</h3>
+              <h3>Summary <Feedback insightId={summaryId} /></h3>
               <p style={{ marginBottom: 8 }}><strong>{sum.outcome}</strong></p>
               <p style={{ color: "var(--text-dim)", fontSize: 13, marginBottom: 8 }}>
                 Sentiment: {sum.sentiment}
@@ -92,10 +94,13 @@ export default function MeetingDetail({
             <div className="card">
               <h3>
                 Follow-up email{" "}
-                <button className="btn subtle" style={{ float: "right" }}
-                  onClick={() => copy(`Subject: ${emailDraft.subject}\n\n${emailDraft.body}`, "email")}>
-                  {copied === "email" ? "Copied ✓" : "Copy"}
-                </button>
+                <span style={{ float: "right", display: "inline-flex", gap: 10, alignItems: "center" }}>
+                  <Feedback insightId={emailDraftId} />
+                  <button className="btn subtle"
+                    onClick={() => copy(`Subject: ${emailDraft.subject}\n\n${emailDraft.body}`, "email")}>
+                    {copied === "email" ? "Copied ✓" : "Copy"}
+                  </button>
+                </span>
               </h3>
               <div className="draft-box">
                 <strong>Subject: {emailDraft.subject}</strong>
@@ -108,10 +113,13 @@ export default function MeetingDetail({
             <div className="card">
               <h3>
                 CRM note{" "}
-                <button className="btn subtle" style={{ float: "right" }}
-                  onClick={() => copy(crmNote, "crm")}>
-                  {copied === "crm" ? "Copied ✓" : "Copy"}
-                </button>
+                <span style={{ float: "right", display: "inline-flex", gap: 10, alignItems: "center" }}>
+                  <Feedback insightId={crmNoteId} />
+                  <button className="btn subtle"
+                    onClick={() => copy(crmNote, "crm")}>
+                    {copied === "crm" ? "Copied ✓" : "Copy"}
+                  </button>
+                </span>
               </h3>
               <div className="draft-box">{crmNote}</div>
             </div>

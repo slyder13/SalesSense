@@ -71,3 +71,32 @@ export async function generateDebrief(
   });
   return parseJsonResponse(msg);
 }
+
+// Embeddings for semantic search (Voyage — Anthropic's recommended embedding model)
+export async function embedTexts(texts: string[]): Promise<number[][]> {
+  const res = await fetch("https://api.voyageai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.VOYAGE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ input: texts, model: "voyage-3.5-lite", input_type: "document" }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Embedding failed: ${JSON.stringify(data)}`);
+  return data.data.map((d: any) => d.embedding);
+}
+
+export async function embedQuery(text: string): Promise<number[]> {
+  const res = await fetch("https://api.voyageai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.VOYAGE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ input: [text], model: "voyage-3.5-lite", input_type: "query" }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Embedding failed: ${JSON.stringify(data)}`);
+  return data.data[0].embedding;
+}

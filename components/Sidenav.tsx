@@ -27,7 +27,9 @@ export default function Sidenav({ role }: { role?: string | null }) {
       <Link href="/deals" className={path.startsWith("/deals") ? "active" : ""}>
         Deals
       </Link>
-      <div className="nav-disabled">Search <small>SOON</small></div>
+      <Link href="/search" className={path.startsWith("/search") ? "active" : ""}>
+        Search
+      </Link>
       <div className="nav-disabled">Analytics <small>SOON</small></div>
       <Link href="/settings" className={path.startsWith("/settings") ? "active" : ""}>
         Settings
