@@ -4,6 +4,7 @@
 //  - Rep can override per meeting (force_record / skip) from Settings.
 
 import { supabaseAdmin } from "@/lib/supabase";
+import { getOrgSettings } from "@/lib/org";
 import {
   listUpcomingEvents,
   scheduleBotForEvent,
@@ -11,21 +12,22 @@ import {
   standardBotConfig,
 } from "@/lib/adapters/calendar";
 
-const INTERNAL_DOMAIN = "square-9.com"; // per-org setting when multi-tenancy goes live
-
 function extractAttendees(event: any): { email: string }[] {
   // Google Calendar raw payload
   return (event.raw?.attendees ?? []).map((a: any) => ({ email: a.email ?? "" }));
 }
 
-function hasExternalAttendee(event: any): boolean {
+function hasExternalAttendee(event: any, internalDomains: string[]): boolean {
   return extractAttendees(event).some(
-    (a) => a.email && !a.email.toLowerCase().endsWith(`@${INTERNAL_DOMAIN}`)
+    (a) =>
+      a.email &&
+      !internalDomains.some((d) => a.email.toLowerCase().endsWith(`@${d.toLowerCase()}`))
   );
 }
 
 export async function syncCalendar(recallCalendarId: string) {
   const db = supabaseAdmin();
+  const org = await getOrgSettings();
 
   const { data: user } = await db
     .from("users").select("id, email").eq("recall_calendar_id", recallCalendarId).maybeSingle();
@@ -35,7 +37,7 @@ export async function syncCalendar(recallCalendarId: string) {
 
   for (const event of events) {
     const meetingUrl = event.meeting_url;
-    const external = hasExternalAttendee(event);
+    const external = hasExternalAttendee(event, org.allowedDomains);
 
     // Check for a rep override saved earlier
     const { data: existing } = await db
@@ -54,11 +56,14 @@ export async function syncCalendar(recallCalendarId: string) {
         await scheduleBotForEvent(
           event.id,
           {
-            ...standardBotConfig({
-              calendar_event_id: event.id,
-              user_email: user?.email ?? "",
-              title: event.raw?.summary ?? "Meeting",
-            }),
+            ...standardBotConfig(
+              {
+                calendar_event_id: event.id,
+                user_email: user?.email ?? "",
+                title: event.raw?.summary ?? "Meeting",
+              },
+              org
+            ),
             join_at: event.start_time,
           },
           event.id // dedup key: one bot per event even if multiple reps share it

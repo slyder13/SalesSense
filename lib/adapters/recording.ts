@@ -26,13 +26,15 @@ async function recall(path: string, init?: RequestInit) {
   return res.json();
 }
 
-// Send a bot to a meeting right now (calendar auto-join comes in a later milestone)
-export async function sendBotToMeeting(meetingUrl: string, botName = "Square 9 Notetaker") {
+// Send a bot to a meeting right now (used by the test page; auto-join covers real use)
+export async function sendBotToMeeting(meetingUrl: string) {
+  const { getOrgSettings } = await import("@/lib/org");
+  const org = await getOrgSettings();
   return recall(`/api/v1/bot/`, {
     method: "POST",
     body: JSON.stringify({
       meeting_url: meetingUrl,
-      bot_name: botName,
+      bot_name: org.botName,
       recording_config: {
         transcript: {
           provider: {
@@ -44,8 +46,7 @@ export async function sendBotToMeeting(meetingUrl: string, botName = "Square 9 N
       chat: {
         on_bot_join: {
           send_to: "everyone",
-          message:
-            "This meeting is being recorded and transcribed by Square 9 for note-taking purposes.",
+          message: org.disclosureMessage,
         },
       },
     }),

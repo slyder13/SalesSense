@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import Sidenav from "@/components/Sidenav";
+import { currentAppUser } from "@/lib/authz";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SalesSense",
-  description: "Sales intelligence for Square 9",
+  description: "Sales intelligence platform",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const user = await currentAppUser().catch(() => null);
   return (
     <html lang="en">
       <body>
         <div className="shell">
-          <Sidenav />
+          <Sidenav role={user?.role ?? null} />
           <main className="main">{children}</main>
         </div>
       </body>

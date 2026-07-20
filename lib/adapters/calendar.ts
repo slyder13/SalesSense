@@ -86,10 +86,14 @@ export async function unscheduleBotForEvent(eventId: string) {
   return recall(`/api/v2/calendar-events/${eventId}/bot/`, { method: "DELETE" });
 }
 
-// The standard SalesSense bot config for scheduled meetings
-export function standardBotConfig(meta: Record<string, string>) {
+// The standard SalesSense bot config for scheduled meetings.
+// Bot name + disclosure come from org settings (Admin section).
+export function standardBotConfig(
+  meta: Record<string, string>,
+  org: { botName: string; disclosureMessage: string }
+) {
   return {
-    bot_name: "Square 9 Notetaker",
+    bot_name: org.botName,
     recording_config: {
       transcript: {
         provider: {
@@ -101,8 +105,7 @@ export function standardBotConfig(meta: Record<string, string>) {
     chat: {
       on_bot_join: {
         send_to: "everyone",
-        message:
-          "This meeting is being recorded and transcribed by Square 9 for note-taking purposes.",
+        message: org.disclosureMessage,
       },
     },
     metadata: meta,

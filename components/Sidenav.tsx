@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
-export default function Sidenav() {
+export default function Sidenav({ role }: { role?: string | null }) {
   const path = usePathname();
   const router = useRouter();
 
@@ -32,6 +32,11 @@ export default function Sidenav() {
       <Link href="/settings" className={path.startsWith("/settings") ? "active" : ""}>
         Settings
       </Link>
+      {role === "admin" && (
+        <Link href="/admin" className={path.startsWith("/admin") ? "active" : ""}>
+          Admin
+        </Link>
+      )}
       <div style={{ flex: 1 }} />
       <Link href="/test">Bot test page</Link>
       <a onClick={signOut} style={{ cursor: "pointer" }}>Sign out</a>
